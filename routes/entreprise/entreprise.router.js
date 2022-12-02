@@ -17,7 +17,6 @@ entrepriseRouter.route('/entreprise')
     .post(createEntreprise)
 
 
-
 entrepriseRouter.route('/entreprise/:id')
     .get(getEntreprise)
     .put(updateEntreprise)

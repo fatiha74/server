@@ -1,63 +1,140 @@
-const pool = require('../../db.js')
+const pool = require('../../db.js');
+const hashPassword = require('../../middleware/hash_password.js');
+const isEmail = require('validator/lib/isEmail')
+const jwt = require('jsonwebtoken')
+const SECRET = require('../../middleware/config.js')
+
+
+
+// const loginRouter = express.Router();
+
+
+
 
 // ! GET all entreprise
 const getAllEntreprise = (async (req, res) => {
     try {
         const allEntreprise = await pool.query("SELECT * FROM entreprise");
+        console.log(allEntreprise)
         res.json(allEntreprise.rows);
     } catch (err) {
         console.error(err.message)
     }
 })
 
+
+
+
 // ! GET une entreprise
 const getEntreprise = (async (req, res) => {
+    const { id } = verifyToken.req.entreprise
     try {
         // L'id passé en parametre dans l'url sur postman
-        const { id } = req.params;
+        // const { id } = req.params;
         const entreprise = await pool.query("SELECT * FROM entreprise WHERE entreprise_id = $1", [id]);
         res.json(entreprise.rows[0]);
         console.log(req.params)
     } catch (err) {
-        console.error(err.message)
+        res.status(400).send(err.message)
+
     }
 })
+
+
+
+
+// ! GET PROFILE
+const getProfileEntreprise = (async (req, res) => {
+    // on recupere le id du token
+    const { id } = req.entreprise
+
+    try {
+        const allEntreprise = await pool.query("SELECT * FROM entreprise where entreprise_id=$1", [id]);
+        res.json(allEntreprise.rows);
+    } catch (err) {
+        res.status(400).send(err.message)
+    }
+})
+
 
 // !CREATE
 const createEntreprise = (async (req, res) => {
+
     try {
 
         // on recupere la valeur de l'attribut
-        const { nom, prenom, rue, ville, cp, telephone, email, mot_de_passe, SIRET, raison_sociale, code_ape, role_ } = req.body;
+        let { civilite, nom, prenom, rue, ville, cp, telephone, email, mdp, siret, raison_sociale, code_ape, role } = req.body;
         // la valeur dans values $1 recupere la description que l'on a ecrit sur postman
         // RETURNING * retourne à chaque fois la data ici description que l'on peut voir sur postman
-        const newEntreprise = await pool.query("INSERT INTO entreprise (nom,prenom,rue,ville,cp,telephone,email,mot_de_passe,\"SIRET\",raison_sociale,code_ape,role_) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING * ", [nom, prenom, rue, ville, cp, telephone, email, mot_de_passe, SIRET, raison_sociale, code_ape, role_]);
-        res.json(newEntreprise.rows[0])
+
+
+        // * verification si l'entreprise existe déjà
+        let verifExist = await pool.query("SELECT * from entreprise WHERE email=$1  ", [email]);
+
+        if (verifExist.rowCount !== 0) {
+            res.status(400).send("l'entreprise existe ")
+        }
+
+        //! on hash le mot de passe
+        mdp = hashPassword(mdp);
+
+
+        let newEntreprise = await pool.query("INSERT INTO entreprise (civilite,nom,prenom,rue,ville,cp,telephone,email,mdp,siret,raison_sociale,code_ape,role) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING * ",
+            [civilite, nom, prenom, telephone, rue, cp, ville, email, mdp, role, siret, raison_sociale, code_ape]);
+
+        // * recuperer le id de l'entreprise qui vient d'etre cree
+        let entreprise = newEntreprise.rows[0]
+        let id = entreprise.entreprise_id
+
+        //create the token
+        const token = jwt.sign(
+            {
+                email, mdp, id
+            },
+            SECRET,
+            {
+                expiresIn: "720h",
+            }
+        )
+        res.json({ ...newEntreprise, token })
         console.log(req.body)
     } catch (err) {
-        console.error(err.message)
+        res.status(400).send(err.message)
     }
-    // res.send('cree new entreprise')
+
 })
+
 
 // !UPDATE
 const updateEntreprise = (async (req, res) => {
 
-    console.log(req.params);
-
+    // console.log(req.params);
+    const { id } = req.entreprise
+    // const {id}=req.params
     try {
         // L'id passé en parametre dans l'url sur postman
+        // const { id } = req.params;
 
-        const { id } = req.params;
-        const { nom, prenom, rue, ville, cp, telephone, email, mot_de_passe, SIRET, raison_sociale, code_ape } = req.body;
+        const { civilite, nom, prenom, rue, ville, cp, telephone, email, mdp, siret, raison_sociale, code_ape } = req.body;
 
+
+          //!hash le password
+          mdp = hashPassword(mdp)
+
+             // *on verifie si le entreprise existe deja
+        // * verification si l'entreprise existe déjà
+        let verifExist = await pool.query("SELECT * from entreprise WHERE email=$1 AND entreprise_id <> $2 ", [email, id]);
+        console.log(email)
+
+        
         // [description, id] == [argument 1 $1, argument 2 $2]
-        const updateEntreprise = await pool.query("UPDATE entreprise SET nom = $1, prenom = $2, rue = $3,ville=$4,cp = $5, telephone = $6,email=$7,mot_de_passe= $8,\"SIRET\"=$9, raison_sociale= $10, code_ape=$11  WHERE entreprise_id = $12", [nom, prenom, rue, ville, cp, telephone, email, mot_de_passe, SIRET, raison_sociale, code_ape, utilisateur_id]);
+        const updateEntreprise = await pool.query("UPDATE entreprise SET civilite=$1,nom = $2, prenom = $3,telephone=$4, rue = $5,cp = $6,ville=$7,email=$8,mdp=$9,role = $10,siret=$11, raison_sociale= $12, code_ape=$13  WHERE entreprise_id = $14",
+            [civilite, nom, prenom, telephone, rue, cp, ville, email, mdp, role, siret, raison_sociale, code_ape, id]);
 
 
         res.json(updateEntreprise)
     } catch (err) {
-        console.error(err.message)
+        res.status(400).send('verifier votre identifiant')
     }
 
 })
@@ -71,17 +148,93 @@ const deleteEntreprise = (async (req, res) => {
         res.json("l'entreprise est supprimé!")
 
     } catch (err) {
-        console.error(err.message)
+        res.status(400).send('verifier votre identifiant')
     }
     res.send('delete')
 })
 
-// on exporte les constantes
+
+// ! LOGIN
+// exports.loginEntreprise = async (req, res) => {
+const loginEntreprise = async (req, res) => {
+    try {
+        ;
+        let {
+            email,
+            mdp
+        } = req.body; // = const description = req.body.description
+
+        //validate mail
+        if (!isEmail(email)) {
+            res.status(400).send('email invalid')
+        }
+
+        //!hash le password
+        mdp = hashPassword(mdp)
+
+        //vérifier si l'utilisateur existe
+
+        let entreprise = await pool.query("SELECT * FROM entreprise WHERE email=$1", [email]);
+
+        entreprise = entreprise.rows[0]
+        let id = entreprise.entreprise_id
+
+        if (!entreprise) {
+            res.status(400).send('verifier vos identifiants')
+            return false;
+        }
+
+        //comparer les mdp
+        if (mdp !== entreprise.mdp) {
+            console.log(mdp)
+            res.status(400).send('verifier vos identifiants')
+            return false;
+        }
+
+        //create the token
+        const token = jwt.sign(
+            {
+                email, mdp, id
+            },
+            SECRET,
+            {
+                expiresIn: "720h",
+            }
+        )
+        // on envoit la reponse de la requete et le token
+        res.json({ ...entreprise, token })
+
+    } catch (err) {
+        console.log("------------------------------------------");
+        console.log(err.message);
+        res.status(400).send(err.message)
+    }
+}
+
+
+
+// ! GET PROFILE
+const getProfile = (async (req, res) => {
+    const { id } = req.entreprise
+
+    try {
+        const allEntreprise = await pool.query("SELECT * FROM entreprise where entreprise_id=$1", [id]);
+        res.json(allEntreprise.rows);
+    } catch (err) {
+        res.status(400).send(err.message)
+    }
+})
+
+
+
+// !on exporte les constantes
 
 module.exports = {
     getAllEntreprise,
     getEntreprise,
     createEntreprise,
     updateEntreprise,
-    deleteEntreprise
+    deleteEntreprise,
+    loginEntreprise,
+    getProfileEntreprise
 }

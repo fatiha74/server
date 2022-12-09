@@ -1,25 +1,36 @@
 const express = require('express');
 const salarieRouter = express.Router();
+const {createSalarie,getAllSalarie,getSalarie,updateSalarie,deleteSalarie,loginSalarie,getProfile} = require('./salarie.controller')
+const verifyToken = require('../../middleware/auth_middleware')
 
 
-const {
-    getAllSalarie,
-    getSalarie,
-    createSalarie,
-    updateSalarie,
-    deleteSalarie
-} = require('./salarie.controller.js')
 
+salarieRouter
+// * create salarie
+.post('/',createSalarie)
 
-// on ajoute les constantes correspondantes à chaque route
-salarieRouter.route('/salarie')
-    .get(getAllSalarie)
-    .post(createSalarie)
+// * login salarie
+.post('/login',loginSalarie)
 
+// ! on verifie le token  à chaque fois pour toutes les actions suivantes
+.use(verifyToken)
 
-salarieRouter.route('/Salarie/:id')
-    .get(getSalarie)
-    .put(updateSalarie)
-    .delete(deleteSalarie);
+// * read tous les salaries
+.get('/',getAllSalarie)
+
+// * read le profile
+.get('/',getProfile)
+
+// *read un salarie
+.get('/:id',getSalarie)
+
+// * update salarie
+// .put('/:id',updateSalarie)
+// * update salarie
+.put('/',updateSalarie)
+
+// *deleteSalarie
+.delete('/:id',deleteSalarie)
+
 
 module.exports = salarieRouter;

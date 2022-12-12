@@ -97,19 +97,20 @@ const updateSalarie = (async (req, res) => {
         // let { id } = req.params;
         // on recupere du formulaire
         let { civilite, nom, prenom,telephone, rue,cp,ville, email, mdp,role, nom_jeune_fille,num_ss, date_naissance, lieu_naissance, pays_naissance} = req.body;
-
-        //!hash le password
-        mdp = hashPassword(mdp)
-        // *on verifie si le salarie existe deja
-        // * verification si l'entreprise existe déjà
-        let verifExist = await pool.query("SELECT * from salarie WHERE email=$1 AND salarie_id <> $2 ", [email, id]);
-        console.log(email)
-
-
+     
         //! validate mail
         if (!isEmail(email)) {
             res.status(400).send('email invalid')
         }
+        
+        //!hash le password
+        mdp = hashPassword(mdp)
+
+        
+        // *on verifie si le salarie existe deja
+      
+        let verifExist = await pool.query("SELECT * from salarie WHERE email=$1 AND salarie_id <> $2 ", [email, id]);
+        console.log(email)
 
         if (verifExist.rowCount !== 0) {
             res.status(400).send('le salarie existe déjà')

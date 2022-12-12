@@ -63,7 +63,7 @@ const createEntreprise = (async (req, res) => {
     try {
 
         // on recupere la valeur de l'attribut
-        let { civilite, nom, prenom, rue, ville, cp, telephone, email, mdp, siret, raison_sociale, code_ape, role } = req.body;
+        let { civilite, nom, prenom,telephone, rue, cp,ville, email, mdp, role, siret, raison_sociale, code_ape } = req.body;
         // la valeur dans values $1 recupere la description que l'on a ecrit sur postman
         // RETURNING * retourne à chaque fois la data ici description que l'on peut voir sur postman
 
@@ -79,14 +79,17 @@ const createEntreprise = (async (req, res) => {
         mdp = hashPassword(mdp);
 
 
-        let newEntreprise = await pool.query("INSERT INTO entreprise (civilite,nom,prenom,rue,ville,cp,telephone,email,mdp,siret,raison_sociale,code_ape,role) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING * ",
-            [civilite, nom, prenom, telephone, rue, cp, ville, email, mdp, role, siret, raison_sociale, code_ape]);
-
+        let newEntreprise = await pool.query("INSERT INTO entreprise (civilite,nom,prenom,telephone,rue,cp,ville,email,mdp,role,siret,raison_sociale,code_ape) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING * ",
+            [civilite, nom, prenom,telephone, rue, cp, ville, email, mdp,role, siret, raison_sociale, code_ape]);
+console.log(newEntreprise)
         // * recuperer le id de l'entreprise qui vient d'etre cree
-        let entreprise = newEntreprise.rows[0]
-        let id = entreprise.entreprise_id
+        let ent = newEntreprise.rows[0]
+        let id = ent.entreprise_id
 
-        //create the token
+
+
+        
+        //! create the token
         const token = jwt.sign(
             {
                 email, mdp, id
@@ -96,6 +99,7 @@ const createEntreprise = (async (req, res) => {
                 expiresIn: "720h",
             }
         )
+        
         res.json({ ...newEntreprise, token })
         console.log(req.body)
     } catch (err) {
@@ -109,32 +113,42 @@ const createEntreprise = (async (req, res) => {
 const updateEntreprise = (async (req, res) => {
 
     // console.log(req.params);
-    const { id } = req.entreprise
-    // const {id}=req.params
+    // const { id } = req.entreprise
+    const {id}=req.params
     try {
         // L'id passé en parametre dans l'url sur postman
         // const { id } = req.params;
 
-        const { civilite, nom, prenom, rue, ville, cp, telephone, email, mdp, siret, raison_sociale, code_ape } = req.body;
+        const {  civilite, nom, prenom,telephone, rue, cp,ville, email, mdp,role, siret, raison_sociale, code_ape} = req.body;
 
+        //! validate mail
+        if (!isEmail(email)) {
+            res.status(400).send('email invalid')
+        }
 
-          //!hash le password
-          mdp = hashPassword(mdp)
+        //!hash le password
+        mdp = hashPassword(mdp)
 
-             // *on verifie si le entreprise existe deja
+        // *on verifie si le entreprise existe deja
         // * verification si l'entreprise existe déjà
         let verifExist = await pool.query("SELECT * from entreprise WHERE email=$1 AND entreprise_id <> $2 ", [email, id]);
         console.log(email)
 
-        
+        if (verifExist.rowCount !== 0) {
+            res.status(400).send("l'entreprise existe déjà")
+            return false;
+        }
+try{
         // [description, id] == [argument 1 $1, argument 2 $2]
-        const updateEntreprise = await pool.query("UPDATE entreprise SET civilite=$1,nom = $2, prenom = $3,telephone=$4, rue = $5,cp = $6,ville=$7,email=$8,mdp=$9,role = $10,siret=$11, raison_sociale= $12, code_ape=$13  WHERE entreprise_id = $14",
-            [civilite, nom, prenom, telephone, rue, cp, ville, email, mdp, role, siret, raison_sociale, code_ape, id]);
-
-
+        const updateEntreprise = await pool.query("UPDATE entreprise SET civilite=$1,nom = $2, prenom = $3,telephone=$4,rue = $5, cp = $6,ville=$7,email=$8,mdp=$9 ,role=$10,siret=$11, raison_sociale= $12, code_ape=$13  WHERE entreprise_id = $14",
+            [ civilite, nom, prenom,telephone, rue, cp,ville, email, mdp,role, siret, raison_sociale, code_ape, id]);
+}catch(err){
+    res.status(400).send("pb requete")
+}
+console.log(updateEntreprise)
         res.json(updateEntreprise)
     } catch (err) {
-        res.status(400).send('verifier votre identifiant')
+        res.status(400).send({MESSAGE : err.message, erreur : "update"})
     }
 
 })
